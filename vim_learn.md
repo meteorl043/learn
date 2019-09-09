@@ -125,7 +125,7 @@
 
 `:vsp` open the file in vertical split windows
 
-### File Operator
+### File Operator ###
 
 `:w file` save file
 
