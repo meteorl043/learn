@@ -200,7 +200,7 @@ Nmap使用-PS参数向目标主机发送一个SYN标志的数据包，这个数�
 但是，在主机发现阶段，我们并不在意目标主机的目标端口是否开放，只在乎主机是否活跃，因此，只要受到数据包，无论是SYN/ACK还是RST
 数据包，都说明主机是活跃的。如果没有受到任何数据包，这意味主机不在线
 
-`Nmap -sn -PS [端口1,端口2,…] [目标]`
+`Nmap -PS [端口1,端口2,…] [目标]`
 
 例如:
 
@@ -300,6 +300,217 @@ Transmission Control Protocol, Src Port: 60692, Dst Port: 80, Seq: 1, Len: 0
 
 扫描结果:
 ```
+Starting Nmap 7.80 ( https://nmap.org ) at 2019-09-09 21:36 PDT
+Nmap scan report for 49.235.104.114
+Host is up (0.070s latency).
+Nmap done: 1 IP address (1 host up) scanned in 7.20 seconds
+```
+```
+发送数据包
+Frame 33: 58 bytes on wire (464 bits), 58 bytes captured (464 bits) on interface 0
+Ethernet II, Src: IntelCor_41:95:6a (88:78:73:41:95:6a), Dst: VivoMobi_97:c1:bc (08:23:b2:97:c1:bc)
+Internet Protocol Version 4, Src: 192.168.43.130, Dst: 49.235.104.114
+Transmission Control Protocol, Src Port: 51754, Dst Port: 10000, Seq: 0, Len: 0
+    Source Port: 51754
+    Destination Port: 10000
+    [Stream index: 2]
+    [TCP Segment Len: 0]
+    Sequence number: 0    (relative sequence number)
+    [Next sequence number: 0    (relative sequence number)]
+    Acknowledgment number: 0
+    0110 .... = Header Length: 24 bytes (6)
+    Flags: 0x002 (SYN)
+    Window size value: 1024
+    [Calculated window size: 1024]
+    Checksum: 0x4714 [unverified]
+    [Checksum Status: Unverified]
+    Urgent pointer: 0
+    Options: (4 bytes), Maximum segment size
+    [Timestamps]
+```
+```
+接收数据包
+Frame 34: 54 bytes on wire (432 bits), 54 bytes captured (432 bits) on interface 0
+Ethernet II, Src: VivoMobi_97:c1:bc (08:23:b2:97:c1:bc), Dst: IntelCor_41:95:6a (88:78:73:41:95:6a)
+Internet Protocol Version 4, Src: 49.235.104.114, Dst: 192.168.43.130
+Transmission Control Protocol, Src Port: 10000, Dst Port: 51754, Seq: 1, Ack: 1, Len: 0
+    Source Port: 10000
+    Destination Port: 51754
+    [Stream index: 2]
+    [TCP Segment Len: 0]
+    Sequence number: 1    (relative sequence number)
+    [Next sequence number: 1    (relative sequence number)]
+    Acknowledgment number: 1    (relative ack number)
+    0101 .... = Header Length: 20 bytes (5)
+    Flags: 0x014 (RST, ACK)
+    Window size value: 0
+    [Calculated window size: 0]
+    [Window size scaling factor: -2 (no window scaling used)]
+    Checksum: 0x62bd [unverified]
+    [Checksum Status: Unverified]
+    Urgent pointer: 0
+    [SEQ/ACK analysis]
+    [Timestamps]
+```
+> 10000端口是关闭的，但是我们收到了一个RST数据包，因此我们仍然可以判断目标主机是活跃的
 
+TCP扫描是Nmap扫描技术中最为强大的技术之一，很多服务器的防御机制会屏蔽ICMP echo的数据包，但是
+任何服务器都会响应针对其服务的SYN数据包，虽然也有可能拒绝ACK数据包。
 
+但是值得注意的是，很多服务器的安全机制可能会屏蔽掉它提供服务以外的端口，比如web服务器会把80
+端口以外的所有端口全部屏蔽掉，因此当你发一个SYN包去往它的22端口时，可能会石沉大海，没有任何响应
 
+而我们有很难对大量主机的所有端口进行扫描，因此端口的选择十分重要，下表列出了常用的14个端口
+端口号|提供的服务|端口号|提供的服务
+------|----------|------|----------
+80    |http      |53    |domain
+25    |smtp      |554   |rtsp
+22    |ssh       |3389  |ms-term-server
+443   |https     |1723  |pptp
+21    |ftp       |389   |ldap
+113   |auth      |636   |ldapssl
+23    |telnet    |256   |fw1-securemote
+
+在利用端口扫描时，也可以使用这些端口的组合，比如“-PS22，80”就是一个不错的组合，但“-PS80，443”意义就不大
+，因为如果目标是一个web服务器，那么他基本上就会提供这两个服务，如果不是，那么一个都不会有
+
+##### TCP ACK扫描
+
+如果Nmap向目标主机发送一个TCP/ACK包，那么目标主机显然不清楚这是怎么一回事，因此不可能成功建立连接，因此，
+通常会回复一个RST标志位的数据包
+
+```Nmap -PA [端口号1,端口号2,…] [目标]```
+
+例如:
+
+```Nmap -sn -PA 49.235.104.114```
+
+扫描结果:
+```
+Starting Nmap 7.80 ( https://nmap.org ) at 2019-09-09 21:56 PDT
+Nmap scan report for 49.235.104.114
+Host is up (0.074s latency).
+Nmap done: 1 IP address (1 host up) scanned in 12.17 seconds
+```
+
+```
+发送的数据包：
+Frame 932: 54 bytes on wire (432 bits), 54 bytes captured (432 bits) on interface 0
+Ethernet II, Src: IntelCor_41:95:6a (88:78:73:41:95:6a), Dst: VivoMobi_97:c1:bc (08:23:b2:97:c1:bc)
+Internet Protocol Version 4, Src: 192.168.43.130, Dst: 49.235.104.114
+Transmission Control Protocol, Src Port: 45577, Dst Port: 80, Seq: 1, Ack: 1, Len: 0
+    Source Port: 45577
+    Destination Port: 80
+    [Stream index: 18]
+    [TCP Segment Len: 0]
+    Sequence number: 1    (relative sequence number)
+    [Next sequence number: 1    (relative sequence number)]
+    Acknowledgment number: 1    (relative ack number)
+    0101 .... = Header Length: 20 bytes (5)
+    Flags: 0x010 (ACK)
+    Window size value: 1024
+    [Calculated window size: 1024]
+    [Window size scaling factor: -1 (unknown)]
+    Checksum: 0xeac9 [unverified]
+    [Checksum Status: Unverified]
+    Urgent pointer: 0
+    [Timestamps]
+```
+```
+收到的数据包：
+Frame 933: 54 bytes on wire (432 bits), 54 bytes captured (432 bits) on interface 0
+Ethernet II, Src: VivoMobi_97:c1:bc (08:23:b2:97:c1:bc), Dst: IntelCor_41:95:6a (88:78:73:41:95:6a)
+Internet Protocol Version 4, Src: 49.235.104.114, Dst: 192.168.43.130
+Transmission Control Protocol, Src Port: 80, Dst Port: 45577, Seq: 1, Len: 0
+    Source Port: 80
+    Destination Port: 45577
+    [Stream index: 18]
+    [TCP Segment Len: 0]
+    Sequence number: 1    (relative sequence number)
+    [Next sequence number: 1    (relative sequence number)]
+    Acknowledgment number: 0
+    0101 .... = Header Length: 20 bytes (5)
+    Flags: 0x004 (RST)
+    Window size value: 0
+    [Calculated window size: 0]
+    [Window size scaling factor: -1 (unknown)]
+    Checksum: 0xeed5 [unverified]
+    [Checksum Status: Unverified]
+    Urgent pointer: 0
+    [Timestamps]
+```
+> 注意：实际上这种扫描很少成功，因为目标主机会过滤掉这种莫名其妙的TCP/ACK包
+
+如果没有收到回包，一种情况是因为这个包被过滤了，另一种情况是目标主机非活跃主机，但是Nmap会按照第二种
+情况进行判断
+
+### 基于UDP协议的主机发现技术
+
+UDP也是一个位于传输层的协议。它完成的工作于TCP是相同的，但是由于UDP不是面向连接的，对UDP端口的探测也就不可能像
+TCP探测那样依赖于连接建立过程，这也使得UDP扫描可靠性不高。
+
+因此，虽然UDP协议较之TCP协议简单，但对UDP的扫描确是相当困难的。
+
+当一个UDP端口收到一个UDP数据包时，如果它是关闭的，就会给源端发送一个ICMP端口不可达数据包; 如果它是开放的，就会
+忽略这个数据包，也即是将他丢弃而不返回任何数据包
+
+这样做的优点是可以完成对UDP端口的探测，而缺点是扫描结果的可靠性较低。因为当发出一个UDP数据包而没有收到任何应答时，
+可能是因为这个UDP端口是开放的，也有可能是因为这个数据包在传输过程丢失了。
+
+另外，扫描的速度也很慢，原因在于RFC1812中对于ICMP错误报文的生成速度作出了限制，例如：Linux就将ICMP报文的生成速度改为每
+4s产生80个，当超出这个限制时，还要暂停1/4s。
+
+##### UDP 扫描
+
+`Nmap -PU [目标]`
+
+例如：
+
+`Nmap -sn -PU 49.235.104.114`
+
+扫描结果
+```
+Starting Nmap 7.80 ( https://nmap.org ) at 2019-09-09 22:12 PDT
+Nmap scan report for 49.235.104.114
+Host is up (0.063s latency).
+Nmap done: 1 IP address (1 host up) scanned in 13.16 seconds
+```
+```
+发送数据包：
+Frame 1675: 42 bytes on wire (336 bits), 42 bytes captured (336 bits) on interface 0
+Ethernet II, Src: IntelCor_41:95:6a (88:78:73:41:95:6a), Dst: VivoMobi_97:c1:bc (08:23:b2:97:c1:bc)
+Internet Protocol Version 4, Src: 192.168.43.130, Dst: 49.235.104.114
+User Datagram Protocol, Src Port: 59394, Dst Port: 40125
+    Source Port: 59394
+    Destination Port: 40125
+    Length: 8
+    Checksum: 0xf495 [unverified]
+    [Checksum Status: Unverified]
+    [Stream index: 325]
+```
+> 可以看出，使用的协议是UDP，目标端口是40125
+```
+收到数据包：
+Frame 1676: 70 bytes on wire (560 bits), 70 bytes captured (560 bits) on interface 0
+Ethernet II, Src: VivoMobi_97:c1:bc (08:23:b2:97:c1:bc), Dst: IntelCor_41:95:6a (88:78:73:41:95:6a)
+Internet Protocol Version 4, Src: 49.235.104.114, Dst: 192.168.43.130
+Internet Control Message Protocol
+    Type: 3 (Destination unreachable)
+    Code: 3 (Port unreachable)
+    Checksum: 0x955a [correct]
+    [Checksum Status: Good]
+    Unused: 00000000
+    Internet Protocol Version 4, Src: 192.168.43.130, Dst: 49.235.104.114
+    User Datagram Protocol, Src Port: 59394, Dst Port: 40125
+        Source Port: 59394
+        Destination Port: 40125
+        Length: 8
+        Checksum: 0xe2d9 [unverified]
+        [Checksum Status: Unverified]
+        [Stream index: 325]
+```
+> 由于目标端口是关闭的，因此会发送一个ICMP端口不可达，Type值为3
+
+因此，针对UDP扫描，端口选择也很重要，但是与TCP不同，UDP需要扫描的是目标主机关闭的端口。在扫描过程中，
+需要避开那些常用的UDP协议端口，例如DNS(端口53),SNMP(端口161)。因此，最合适的做法就是选择一个值比较大的端口，
+例如35462。
