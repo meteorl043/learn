@@ -514,3 +514,135 @@ Internet Control Message Protocol
 因此，针对UDP扫描，端口选择也很重要，但是与TCP不同，UDP需要扫描的是目标主机关闭的端口。在扫描过程中，
 需要避开那些常用的UDP协议端口，例如DNS(端口53),SNMP(端口161)。因此，最合适的做法就是选择一个值比较大的端口，
 例如35462。
+
+### 基于SCTP协议的主机发现技术
+
+SCTP与TCP同属于传输层协议，与TCP完成的任务也是相同的。但是两者之间却存在很大区别。
+
+首先，TCP协议一般用于单地址连接，而SCTP却可以用于多地址连接
+
+其次，TCP是基于字节流的，而SCTP是基于消息流的。TCP仅能支持一个流，而SCTP连接可以同时支持多个流。
+
+最后，TCP协议是基于三次握手实现的，而SCTP是基于一种四次握手的机制实现的，这种机制可以有效避免攻击的产生。
+> 在SCTP中，客户端使用一个INIT报文发起一个连接   
+> 服务端使用一个INIT-ACK报文进行应答，其中就包括了cookie(标识了这个连接的上下文)
+> 然后客户端使用一个COOKIE-ECHO报文进行响应，其中包含了服务端所发送的cookie
+> 服务端要为这个连接分配资源，并通过向客户端发送一个COOKIE-ACK报文进行响应
+
+`Nmap -PY[端口1,端口2,…] [目标]`
+
+例如：
+
+`Nmap -sn -PY 49.235.104.114`
+
+扫描结果:
+```
+Starting Nmap 7.80 ( https://nmap.org ) at 2019-09-10 22:22 PDT
+Nmap scan report for 49.235.104.114
+Host is up (0.12s latency).
+Nmap done: 1 IP address (1 host up) scanned in 0.70 seconds
+```
+
+```
+发送数据包:
+Frame 788: 66 bytes on wire (528 bits), 66 bytes captured (528 bits) on interface 0
+Ethernet II, Src: IntelCor_41:95:6a (88:78:73:41:95:6a), Dst: Hangzhou_91:72:e2 (5c:dd:70:91:72:e2)
+Internet Protocol Version 4, Src: 211.86.145.16, Dst: 49.235.104.114
+Stream Control Transmission Protocol, Src Port: 46729 (46729), Dst Port: 80 (80)
+    Source port: 46729
+    Destination port: 80
+    Verification tag: 0x00000000
+    [Association index: 0]
+    Checksum: 0x53e99198 [unverified]
+    [Checksum Status: Unverified]
+    INIT chunk (Outbound streams: 10, inbound streams: 2048)
+        Chunk type: INIT (1)
+        Chunk flags: 0x00
+        Chunk length: 20
+        Initiate tag: 0xfb5d2ea1
+        Advertised receiver window credit (a_rwnd): 32768
+        Number of outbound streams: 10
+        Number of inbound streams: 2048
+        Initial TSN: 900498910
+```
+```
+接收数据包:
+Frame 794: 94 bytes on wire (752 bits), 94 bytes captured (752 bits) on interface 0
+Ethernet II, Src: Hangzhou_91:72:e2 (5c:dd:70:91:72:e2), Dst: IntelCor_41:95:6a (88:78:73:41:95:6a)
+Internet Protocol Version 4, Src: 49.235.104.114, Dst: 211.86.145.16
+Internet Control Message Protocol
+    Type: 3 (Destination unreachable)
+    Code: 2 (Protocol unreachable)
+    Checksum: 0xf1f9 [correct]
+    [Checksum Status: Good]
+    Unused: 00000000
+    Internet Protocol Version 4, Src: 211.86.145.16, Dst: 49.235.104.114
+    Stream Control Transmission Protocol, Src Port: 46729 (46729), Dst Port: 80 (80)
+        Source port: 46729
+        Destination port: 80
+        Verification tag: 0x00000000
+        [Association index: 0]
+        Checksum: 0x53e99198 [unverified]
+        [Checksum Status: Unverified]
+        INIT chunk (Outbound streams: 10, inbound streams: 2048)
+            Chunk type: INIT (1)
+            Chunk flags: 0x00
+            Chunk length: 20
+            Initiate tag: 0xfb5d2ea1
+            Advertised receiver window credit (a_rwnd): 32768
+            Number of outbound streams: 10
+            Number of inbound streams: 2048
+            Initial TSN: 900498910
+```
+> 可以看出，我们返回了一个ICMP的端口不可达的数据包   
+> 另外，书上说，目前支持这种协议的主机数目并不多，因此有些时候不能得到正确的结果
+
+### 使用IP协议进行主机发现
+
+IP协议是TCP/IP协议族中的核心协议，TCP，UDP，SCTP，ICMP，以及IGMP数据都是以IP数据包格式进行传输的
+
+IP协议数据包格式内有协议域，标识是那个协议向IP传输数据
+
+协议编号|协议|协议编号|协议
+:------:|:--:|:------:|:--:
+1       |ICMP|2       |IGMP
+6       |TCP |17      |UDP
+47      |GRE |50      |ESP
+
+`Nmap -sP -PO[协议编号1,协议编号2…] [目标]`
+
+> Nmap -sP 与Nmap -sn有什么区别？
+> 仅使用`nmap -sP` 时 发送的包为ICMP*2 TCP   
+> 而使用`nmap -sP -PO` 时 发送的包为ICMP iGMP PinP
+
+另外，由于这种方式产生的数据包内容都是空的，因此很容易被检测出来，可以使用一个--data-length参数
+来随机添加数据的数据包。
+
+`Nmap --data-length 25 -sP -PO [目标]`
+
+### Nmap活跃主机发现与DNS协议相关的选项
+
+##### DNS解析
+DNS是每天都在使用的协议，但大多数人都没有意识到。DNS协议会将域名与IP地址关联起来，因此访问网站的时候
+不需要记忆毫无意义的数字
+
+##### Nmap中的DNS选项
+
+希望列出所有的目标IP无论是否是活跃主机对应的域名都列出来的话，可以使用-R参数
+
+`nmap -R [目标]`
+
+如果强制将目标IP都转换为域名，将会耗费大量的时间，有时可能已经知道了主机的域名，无须进行任何的转化，此时
+可以使用-n来取消对域名的转换
+
+`nmap -n [目标]`
+
+如果不想在自己的DNS服务器上留下这次的查询痕迹，可能需要使用指定DNS服务器来查询目标，使用--dns-server参数
+
+`nmap --dns-server [server1, server2…] [目标]`
+
+也可以使用--packet-trace进行追踪
+
+`nmap --packet-trace -R --dns-server [server1, server2…] [目标]`
+
+
